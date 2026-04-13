@@ -180,7 +180,8 @@ const USERS = [
   { id: "u2", name: "Thomas M.",  balance: 189763 },
   { id: "u3", name: "Martin L.",  balance: 234000 },
   { id: "u4", name: "Damian C.",  balance: 94278 },
-  { id: "u5", name: "Vodafone",  balance: 5000 },
+  { id: "u5", name: "Vodafone",   balance: 3500 },
+  { id: "u6", name: "T-Mobile",   balance: 3500 },
 ];
 
 /* ═════════════════════════════════════════════════════════════
@@ -279,7 +280,9 @@ function App() {
   }, []);
 
   /* ── Listen for remote changes ── */
-  useEffect(() => fbListen(v => { if(!saving.current) setState(v); }), []);
+  useEffect(() => fbListen(v => {
+    if(!saving.current) setState(curr => (!curr || v.blockHeight >= curr.blockHeight) ? v : curr);
+  }), []);
 
   /* ── Save on change (debounced) ── */
   useEffect(() => {
@@ -363,7 +366,7 @@ function App() {
       setXStatus({ ok:true, msg:`${fmt(amt)} ${COIN_SYMBOL} → ${t.name}` }); setQrScan(null);
       return { ...p,
         users: p.users.map(u => u.id===xFrom ? {...u,balance:u.balance-amt} : u.id===xTo ? {...u,balance:u.balance+amt} : u),
-        txLog: [...(p.txLog||[]), { id:uid(), from:f.addr, to:t.addr, fromName:f.name, toName:t.name, amount:amt, time:now(), type:"transfer", block:p.blockHeight }].slice(-200),
+        txLog: [...(p.txLog||[]), { id:uid(), from:f.addr, to:t.addr, fromName:f.name, toName:t.name, amount:amt, time:now(), type:"transfer", block:p.blockHeight }].slice(-2000),
         volumeTotal: (p.volumeTotal||0) + amt,
       };
     });
@@ -388,7 +391,7 @@ function App() {
       if (!u || u.balance < amt) return p;
       return { ...p,
         users: p.users.map(x => x.id===id ? { ...x, balance:x.balance-amt, investedAmount:(x.investedAmount||0)+amt } : x),
-        txLog: [...(p.txLog||[]), { id:uid(), from:u.addr, to:"DSW", fromName:u.name, toName:"DigitalSilkWay", amount:amt, time:now(), type:"invest", block:p.blockHeight }].slice(-200),
+        txLog: [...(p.txLog||[]), { id:uid(), from:u.addr, to:"DSW", fromName:u.name, toName:"DigitalSilkWay", amount:amt, time:now(), type:"invest", block:p.blockHeight }].slice(-2000),
       };
     });
     setInvestAmt(""); setInvestId(null);
@@ -460,7 +463,7 @@ function App() {
             <div style={{ fontSize:22, fontWeight:400, fontFamily:"var(--mono)" }}>{fmtK(TOTAL_SUPPLY)}</div>
           </div>
         </div>
-        <div style={{ marginTop:16 }}><PegChart /></div>
+        <div style={{ marginTop:16 }}>{PegChart()}</div>
       </div>
 
       <div className="g4" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:12 }}>
@@ -624,7 +627,7 @@ function App() {
         <div className="label" style={{ marginBottom:10 }}>History</div>
         {(state.txLog||[]).filter(t=>t.type==="transfer").length===0
           ? <p style={{ fontSize:12, color:"var(--text3)", textAlign:"center", padding:20 }}>No transfers yet</p>
-          : (state.txLog||[]).filter(t=>t.type==="transfer").reverse().slice(0,15).map(tx => (
+          : (state.txLog||[]).filter(t=>t.type==="transfer").reverse().map(tx => (
             <div key={tx.id} className="row">
               <div><div style={{ fontSize:13, fontWeight:500 }}>{tx.fromName} → {tx.toName}</div><div style={{ fontSize:10, color:"var(--text3)" }}>#{tx.block} · {date(tx.time)}</div></div>
               <div style={{ fontSize:14, fontWeight:500, fontFamily:"var(--mono)", color:"var(--accent)" }}>{fmt(tx.amount)}</div>
@@ -735,7 +738,7 @@ function App() {
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-          <MiniChart />
+          {MiniChart()}
           <div style={{ fontSize:11, color:"var(--text3)", background:"var(--bg2)", padding:"6px 14px", borderRadius:8, display:"flex", alignItems:"center", gap:7, border:"1px solid var(--border)", fontFamily:"var(--mono)" }}>
             <div style={{ width:5, height:5, borderRadius:"50%", background:"var(--green)", boxShadow:"0 0 5px var(--green)", animation:"pulse 2s infinite" }} />
             #{state.blockHeight}
@@ -750,12 +753,12 @@ function App() {
         ))}
       </div>
 
-      {view==="dashboard" && <Dashboard />}
-      {view==="wallets" && <Wallets />}
-      {view==="transfer" && <Transfer />}
-      {view==="mining" && <Mining />}
+      {view==="dashboard" && Dashboard()}
+      {view==="wallets" && Wallets()}
+      {view==="transfer" && Transfer()}
+      {view==="mining" && Mining()}
 
-      <QRModal />
+      {QRModal()}
 
       {/* ── FOOTER ── */}
       <div style={{ textAlign:"center", marginTop:40, padding:"16px 0" }}>
