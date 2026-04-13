@@ -358,7 +358,16 @@ function App() {
   useEffect(() => {
     (async () => {
       const saved = await fbLoad();
-      setState(saved && saved.users ? saved : genesis());
+      if (saved && saved.users) {
+        // Merge: add any USERS entries not yet in the saved state
+        const existingIds = new Set(saved.users.map(u => u.id));
+        const newUsers = USERS.filter(u => !existingIds.has(u.id)).map(u => ({
+          ...u, addr: addr(u.name), stakingAmount: 0, stakingStart: null, investedAmount: 0,
+        }));
+        setState(newUsers.length ? { ...saved, users: [...saved.users, ...newUsers] } : saved);
+      } else {
+        setState(genesis());
+      }
       setLoading(false);
     })();
   }, []);
