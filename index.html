@@ -253,6 +253,90 @@ function fbSave(state)    { if(!firebaseOK) return; try { db.ref(DB).set(state);
 function fbListen(cb)     { if(!firebaseOK) return ()=>{}; const r = db.ref(DB); r.on("value", s => { const v = s.val(); if(v) cb(v); }); return ()=>r.off("value"); }
 
 /* ═════════════════════════════════════════════════════════════
+   TRANSFER VIEW — defined outside App so its reference is stable
+   across re-renders; prevents inputs from losing focus on block ticks
+   ═════════════════════════════════════════════════════════════ */
+
+function TransferView({ users, txLog, peg, xFrom, xTo, xAmt, xStatus, qrScan,
+                        setXFrom, setXTo, setXAmt, doTransfer, setShowQR, setView }) {
+  return (
+    <div>
+      {qrScan && <div className="card" style={{ borderLeft:"3px solid var(--green)", background:"var(--green-light)" }}><div style={{ fontSize:13, color:"var(--green)", fontWeight:500 }}>✓ QR scanned — paying {qrScan}</div></div>}
+      <div className="card">
+        <div className="label" style={{ marginBottom:14 }}>Send {COIN_SYMBOL}</div>
+        <div style={{ marginBottom:14 }}>
+          <label className="field-label">From</label>
+          <select className="select" value={xFrom} onChange={e=>setXFrom(e.target.value)}>
+            <option value="">Select sender…</option>
+            {users.map(u => <option key={u.id} value={u.id}>{u.name} — {fmt(u.balance)} {COIN_SYMBOL}</option>)}
+          </select>
+        </div>
+        <div style={{ marginBottom:14 }}>
+          <label className="field-label">To</label>
+          <select className="select" value={xTo} onChange={e=>setXTo(e.target.value)}>
+            <option value="">Select recipient…</option>
+            {users.filter(u=>u.id!==xFrom).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        </div>
+        <div style={{ marginBottom:16 }}>
+          <label className="field-label">Amount</label>
+          <input className="input" type="number" placeholder="0.00" value={xAmt} onChange={e=>setXAmt(e.target.value)} min="0" step="0.01" />
+          {xAmt && !isNaN(parseFloat(xAmt)) && <div style={{ fontSize:11, color:"var(--text3)", marginTop:4, fontFamily:"var(--mono)" }}>≈ €{fmt(parseFloat(xAmt)*peg)}</div>}
+        </div>
+        <button className="btn btn-primary" onClick={doTransfer}>Execute Transfer</button>
+        {xStatus && <div style={{ marginTop:12, padding:"12px 16px", borderRadius:12, fontSize:13, background:xStatus.ok?"var(--green-light)":"rgba(221,51,51,0.06)", color:xStatus.ok?"var(--green)":"var(--red)" }}>{xStatus.ok?"✓ ":"✗ "}{xStatus.msg}</div>}
+      </div>
+      <div className="card">
+        <div className="label" style={{ marginBottom:10 }}>QR Payments</div>
+        <p style={{ fontSize:12, color:"var(--text3)", marginBottom:14, lineHeight:1.6 }}>Show recipient's QR → scan with phone camera → tap banner → transfer opens.</p>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {users.map(u => <button key={u.id} className="btn btn-outline" onClick={()=>setShowQR(u)}>{u.name}</button>)}
+        </div>
+      </div>
+      <div className="card">
+        <div className="label" style={{ marginBottom:10 }}>History</div>
+        {(txLog||[]).filter(t=>t.type==="transfer").length===0
+          ? <p style={{ fontSize:12, color:"var(--text3)", textAlign:"center", padding:20 }}>No transfers yet</p>
+          : (txLog||[]).filter(t=>t.type==="transfer").reverse().map(tx => (
+            <div key={tx.id} className="row">
+              <div><div style={{ fontSize:13, fontWeight:500 }}>{tx.fromName} → {tx.toName}</div><div style={{ fontSize:10, color:"var(--text3)" }}>#{tx.block} · {date(tx.time)}</div></div>
+              <div style={{ fontSize:14, fontWeight:500, fontFamily:"var(--mono)", color:"var(--accent)" }}>{fmt(tx.amount)}</div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  );
+}
+
+/* ═════════════════════════════════════════════════════════════
+   QR MODAL — defined outside App so QRWidget is never remounted
+   on block ticks (prevents QR code from blinking/regenerating)
+   ═════════════════════════════════════════════════════════════ */
+
+function QRModal({ showQR, setShowQR, setXTo, setView }) {
+  if (!showQR) return null;
+  const url = window.location.href.split("#")[0] + "#pay-" + showQR.id;
+  return (
+    <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20,animation:"slideIn 0.2s ease" }} onClick={()=>setShowQR(null)}>
+      <div style={{ background:"#fff",borderRadius:24,padding:32,maxWidth:400,width:"100%",textAlign:"center",boxShadow:"var(--shadow-lg)" }} onClick={e=>e.stopPropagation()}>
+        <div className="label" style={{ marginBottom:4 }}>Scan to pay</div>
+        <div style={{ fontSize:20, fontWeight:500, marginBottom:4 }}>{showQR.name}</div>
+        <div style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)", marginBottom:20, wordBreak:"break-all" }}>{showQR.addr}</div>
+        <QRWidget data={url} size={220} />
+        <p style={{ fontSize:11, color:"var(--text3)", marginTop:18, lineHeight:1.8 }}>
+          Point camera at this code. Tap the banner to open the payment page. Select sender and amount on the next screen.
+        </p>
+        <div style={{ marginTop:16, display:"flex", gap:8, justifyContent:"center" }}>
+          <button className="btn btn-primary" onClick={()=>{ setXTo(showQR.id); setView("transfer"); setShowQR(null); }}>Pay Now</button>
+          <button className="btn btn-outline" onClick={()=>setShowQR(null)}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═════════════════════════════════════════════════════════════
    MAIN APP
    ═════════════════════════════════════════════════════════════ */
 
@@ -281,7 +365,12 @@ function App() {
 
   /* ── Listen for remote changes ── */
   useEffect(() => fbListen(v => {
-    if(!saving.current) setState(curr => (!curr || v.blockHeight >= curr.blockHeight) ? v : curr);
+    if (!saving.current) setState(curr => {
+      if (!curr) return v;
+      // Reject stale/genesis data from another tab that has fewer transactions
+      if ((v.txLog||[]).length < (curr.txLog||[]).length) return curr;
+      return v;
+    });
   }), []);
 
   /* ── Save on change (debounced) ── */
@@ -463,7 +552,7 @@ function App() {
             <div style={{ fontSize:22, fontWeight:400, fontFamily:"var(--mono)" }}>{fmtK(TOTAL_SUPPLY)}</div>
           </div>
         </div>
-        <div style={{ marginTop:16 }}>{PegChart()}</div>
+        <div style={{ marginTop:16 }}><PegChart /></div>
       </div>
 
       <div className="g4" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:12 }}>
@@ -586,59 +675,6 @@ function App() {
   );
 
   /* ═════════════════════════════════════════════════════════════
-     TRANSFER VIEW
-     ═════════════════════════════════════════════════════════════ */
-
-  const Transfer = () => (
-    <div>
-      {qrScan && <div className="card" style={{ borderLeft:"3px solid var(--green)", background:"var(--green-light)" }}><div style={{ fontSize:13, color:"var(--green)", fontWeight:500 }}>✓ QR scanned — paying {qrScan}</div></div>}
-      <div className="card">
-        <div className="label" style={{ marginBottom:14 }}>Send {COIN_SYMBOL}</div>
-        <div style={{ marginBottom:14 }}>
-          <label className="field-label">From</label>
-          <select className="select" value={xFrom} onChange={e=>setXFrom(e.target.value)}>
-            <option value="">Select sender…</option>
-            {state.users.map(u => <option key={u.id} value={u.id}>{u.name} — {fmt(u.balance)} {COIN_SYMBOL}</option>)}
-          </select>
-        </div>
-        <div style={{ marginBottom:14 }}>
-          <label className="field-label">To</label>
-          <select className="select" value={xTo} onChange={e=>setXTo(e.target.value)}>
-            <option value="">Select recipient…</option>
-            {state.users.filter(u=>u.id!==xFrom).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-        </div>
-        <div style={{ marginBottom:16 }}>
-          <label className="field-label">Amount</label>
-          <input className="input" type="number" placeholder="0.00" value={xAmt} onChange={e=>setXAmt(e.target.value)} min="0" step="0.01" />
-          {xAmt && !isNaN(parseFloat(xAmt)) && <div style={{ fontSize:11, color:"var(--text3)", marginTop:4, fontFamily:"var(--mono)" }}>≈ €{fmt(parseFloat(xAmt)*peg)}</div>}
-        </div>
-        <button className="btn btn-primary" onClick={doTransfer}>Execute Transfer</button>
-        {xStatus && <div style={{ marginTop:12, padding:"12px 16px", borderRadius:12, fontSize:13, background:xStatus.ok?"var(--green-light)":"rgba(221,51,51,0.06)", color:xStatus.ok?"var(--green)":"var(--red)" }}>{xStatus.ok?"✓ ":"✗ "}{xStatus.msg}</div>}
-      </div>
-      <div className="card">
-        <div className="label" style={{ marginBottom:10 }}>QR Payments</div>
-        <p style={{ fontSize:12, color:"var(--text3)", marginBottom:14, lineHeight:1.6 }}>Show recipient's QR → scan with phone camera → tap banner → transfer opens.</p>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          {state.users.map(u => <button key={u.id} className="btn btn-outline" onClick={()=>setShowQR(u)}>{u.name}</button>)}
-        </div>
-      </div>
-      <div className="card">
-        <div className="label" style={{ marginBottom:10 }}>History</div>
-        {(state.txLog||[]).filter(t=>t.type==="transfer").length===0
-          ? <p style={{ fontSize:12, color:"var(--text3)", textAlign:"center", padding:20 }}>No transfers yet</p>
-          : (state.txLog||[]).filter(t=>t.type==="transfer").reverse().map(tx => (
-            <div key={tx.id} className="row">
-              <div><div style={{ fontSize:13, fontWeight:500 }}>{tx.fromName} → {tx.toName}</div><div style={{ fontSize:10, color:"var(--text3)" }}>#{tx.block} · {date(tx.time)}</div></div>
-              <div style={{ fontSize:14, fontWeight:500, fontFamily:"var(--mono)", color:"var(--accent)" }}>{fmt(tx.amount)}</div>
-            </div>
-          ))
-        }
-      </div>
-    </div>
-  );
-
-  /* ═════════════════════════════════════════════════════════════
      MINING VIEW
      ═════════════════════════════════════════════════════════════ */
 
@@ -690,32 +726,6 @@ function App() {
   );
 
   /* ═════════════════════════════════════════════════════════════
-     QR MODAL
-     ═════════════════════════════════════════════════════════════ */
-
-  const QRModal = () => {
-    if (!showQR) return null;
-    const url = window.location.href.split("#")[0] + "#pay-" + showQR.id;
-    return (
-      <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20,animation:"slideIn 0.2s ease" }} onClick={()=>setShowQR(null)}>
-        <div style={{ background:"#fff",borderRadius:24,padding:32,maxWidth:400,width:"100%",textAlign:"center",boxShadow:"var(--shadow-lg)" }} onClick={e=>e.stopPropagation()}>
-          <div className="label" style={{ marginBottom:4 }}>Scan to pay</div>
-          <div style={{ fontSize:20, fontWeight:500, marginBottom:4 }}>{showQR.name}</div>
-          <div style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)", marginBottom:20, wordBreak:"break-all" }}>{showQR.addr}</div>
-          <QRWidget data={url} size={220} />
-          <p style={{ fontSize:11, color:"var(--text3)", marginTop:18, lineHeight:1.8 }}>
-            Point camera at this code. Tap the banner to open the payment page. Select sender and amount on the next screen.
-          </p>
-          <div style={{ marginTop:16, display:"flex", gap:8, justifyContent:"center" }}>
-            <button className="btn btn-primary" onClick={()=>{ setXTo(showQR.id); setView("transfer"); setShowQR(null); }}>Pay Now</button>
-            <button className="btn btn-outline" onClick={()=>setShowQR(null)}>Close</button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  /* ═════════════════════════════════════════════════════════════
      RENDER
      ═════════════════════════════════════════════════════════════ */
 
@@ -738,7 +748,7 @@ function App() {
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-          {MiniChart()}
+          <MiniChart />
           <div style={{ fontSize:11, color:"var(--text3)", background:"var(--bg2)", padding:"6px 14px", borderRadius:8, display:"flex", alignItems:"center", gap:7, border:"1px solid var(--border)", fontFamily:"var(--mono)" }}>
             <div style={{ width:5, height:5, borderRadius:"50%", background:"var(--green)", boxShadow:"0 0 5px var(--green)", animation:"pulse 2s infinite" }} />
             #{state.blockHeight}
@@ -753,12 +763,15 @@ function App() {
         ))}
       </div>
 
-      {view==="dashboard" && Dashboard()}
-      {view==="wallets" && Wallets()}
-      {view==="transfer" && Transfer()}
-      {view==="mining" && Mining()}
+      {view==="dashboard" && <Dashboard />}
+      {view==="wallets" && <Wallets />}
+      {view==="transfer" && <TransferView users={state.users} txLog={state.txLog} peg={peg}
+        xFrom={xFrom} xTo={xTo} xAmt={xAmt} xStatus={xStatus} qrScan={qrScan}
+        setXFrom={setXFrom} setXTo={setXTo} setXAmt={setXAmt}
+        doTransfer={doTransfer} setShowQR={setShowQR} setView={setView} />}
+      {view==="mining" && <Mining />}
 
-      {QRModal()}
+      <QRModal showQR={showQR} setShowQR={setShowQR} setXTo={setXTo} setView={setView} />
 
       {/* ── FOOTER ── */}
       <div style={{ textAlign:"center", marginTop:40, padding:"16px 0" }}>
