@@ -108,9 +108,23 @@ button:active { transform: scale(0.98); }
 .tag-invest { background: var(--orange-light); color: var(--orange); }
 
 /* ── Responsive ── */
+html, body { overflow-x: hidden; }
 @media (max-width: 600px) {
-  .card { padding: 16px; }
+  .card { padding: 14px; }
   .g4 { grid-template-columns: repeat(2, 1fr) !important; }
+  .stat3 { grid-template-columns: 1fr 1fr !important; }
+  .ticker-bar { gap: 8px !important; padding: 14px 0 12px !important; }
+  .ticker-left { gap: 10px !important; }
+  .ticker-right { gap: 8px !important; }
+  .nav-btn { font-size: 11px !important; }
+  .wallet-hdr { gap: 6px !important; }
+}
+@media (max-width: 400px) {
+  .stat3 { grid-template-columns: 1fr !important; }
+  .invest-row { flex-direction: column !important; align-items: stretch !important; }
+  .invest-row button, .invest-row input { width: 100% !important; }
+  .btn-orange { width: 100%; box-sizing: border-box; text-align: center; display: block; }
+  .ticker-right .mini-chart { display: none; }
 }
 </style>
 </head>
@@ -259,6 +273,11 @@ function fbListen(cb)     { if(!firebaseOK) return ()=>{}; const r = db.ref(DB);
 
 function TransferView({ users, txLog, peg, xFrom, xTo, xAmt, xStatus, qrScan,
                         setXFrom, setXTo, setXAmt, doTransfer, setShowQR, setView }) {
+  const [txPage, setTxPage] = useState(0);
+  const PAGE_SIZE = 20;
+  const transfers = (txLog||[]).filter(t=>t.type==="transfer").reverse();
+  const totalPages = Math.max(1, Math.ceil(transfers.length / PAGE_SIZE));
+  const pageTxs = transfers.slice(txPage * PAGE_SIZE, (txPage + 1) * PAGE_SIZE);
   return (
     <div>
       {qrScan && <div className="card" style={{ borderLeft:"3px solid var(--green)", background:"var(--green-light)" }}><div style={{ fontSize:13, color:"var(--green)", fontWeight:500 }}>✓ QR scanned — paying {qrScan}</div></div>}
@@ -294,15 +313,30 @@ function TransferView({ users, txLog, peg, xFrom, xTo, xAmt, xStatus, qrScan,
         </div>
       </div>
       <div className="card">
-        <div className="label" style={{ marginBottom:10 }}>History</div>
-        {(txLog||[]).filter(t=>t.type==="transfer").length===0
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+          <div className="label" style={{ marginBottom:0 }}>History</div>
+          {transfers.length > 0 && <span style={{ fontSize:11, color:"var(--text3)" }}>{transfers.length} transfers</span>}
+        </div>
+        {transfers.length === 0
           ? <p style={{ fontSize:12, color:"var(--text3)", textAlign:"center", padding:20 }}>No transfers yet</p>
-          : (txLog||[]).filter(t=>t.type==="transfer").reverse().map(tx => (
-            <div key={tx.id} className="row">
-              <div><div style={{ fontSize:13, fontWeight:500 }}>{tx.fromName} → {tx.toName}</div><div style={{ fontSize:10, color:"var(--text3)" }}>#{tx.block} · {date(tx.time)}</div></div>
-              <div style={{ fontSize:14, fontWeight:500, fontFamily:"var(--mono)", color:"var(--accent)" }}>{fmt(tx.amount)}</div>
-            </div>
-          ))
+          : <>
+              {pageTxs.map(tx => (
+                <div key={tx.id} className="row">
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:500 }}>{tx.fromName} → {tx.toName}</div>
+                    <div style={{ fontSize:10, color:"var(--text3)" }}>#{tx.block} · {date(tx.time)}</div>
+                  </div>
+                  <div style={{ fontSize:14, fontWeight:500, fontFamily:"var(--mono)", color:"var(--accent)", flexShrink:0 }}>{fmt(tx.amount)}</div>
+                </div>
+              ))}
+              {totalPages > 1 && (
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:14, paddingTop:12, borderTop:"1px solid var(--border)" }}>
+                  <button className="btn btn-outline" onClick={()=>setTxPage(p=>Math.max(0,p-1))} disabled={txPage===0} style={{ opacity:txPage===0?0.4:1 }}>← Prev</button>
+                  <span style={{ fontSize:12, color:"var(--text3)" }}>Page {txPage+1} of {totalPages}</span>
+                  <button className="btn btn-outline" onClick={()=>setTxPage(p=>Math.min(totalPages-1,p+1))} disabled={txPage===totalPages-1} style={{ opacity:txPage===totalPages-1?0.4:1 }}>Next →</button>
+                </div>
+              )}
+            </>
         }
       </div>
     </div>
@@ -353,6 +387,7 @@ function App() {
   const [investId, setInvestId]        = useState(null);
   const [investAmt, setInvestAmt]      = useState("");
   const saving = useRef(false);
+  const [eurUsd, setEurUsd] = useState(null);
 
   /* ── Load from Firebase or create genesis ── */
   useEffect(() => {
@@ -450,6 +485,14 @@ function App() {
     window.addEventListener("hashchange", check);
     return () => window.removeEventListener("hashchange", check);
   }, [state?.users]);
+
+  /* ── Live EUR/USD exchange rate ── */
+  useEffect(() => {
+    fetch("https://open.er-api.com/v6/latest/EUR")
+      .then(r => r.json())
+      .then(d => { if (d.rates && d.rates.USD) setEurUsd(d.rates.USD); })
+      .catch(() => {});
+  }, []);
 
   /* ── Transfer ── */
   const doTransfer = useCallback(() => {
@@ -555,6 +598,7 @@ function App() {
               €{peg.toFixed(4)}
             </div>
             <div style={{ fontSize:12, color:"var(--text3)", marginTop:4 }}>1 {COIN_SYMBOL} = {peg.toFixed(4)} {PEG_ASSET}</div>
+            {eurUsd && <div style={{ fontSize:12, color:"var(--accent)", marginTop:3, fontFamily:"var(--mono)" }}>1 EUR = ${eurUsd.toFixed(4)} USD</div>}
           </div>
           <div style={{ textAlign:"right" }}>
             <div className="label">Total Supply</div>
@@ -632,13 +676,13 @@ function App() {
   const Wallets = () => (
     <div>
       <div className="card" style={{ borderLeft:"3px solid var(--text3)" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8 }}>
-          <div>
+        <div className="wallet-hdr" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:8 }}>
+          <div style={{ flex:1, minWidth:0, marginRight:8 }}>
             <div className="label">Master Reserve</div>
-            <div style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)", wordBreak:"break-all" }}>{state.masterAddr}</div>
+            <div style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)", wordBreak:"break-all", overflowWrap:"anywhere" }}>{state.masterAddr}</div>
           </div>
-          <div style={{ textAlign:"right" }}>
-            <div style={{ fontSize:26, fontWeight:300, fontFamily:"var(--mono)" }}>{fmt(state.masterBalance)}</div>
+          <div style={{ textAlign:"right", flexShrink:0 }}>
+            <div style={{ fontSize:22, fontWeight:300, fontFamily:"var(--mono)" }}>{fmt(state.masterBalance)}</div>
             <div style={{ fontSize:11, color:"var(--text3)" }}>{COIN_SYMBOL} ≈ €{fmt(state.masterBalance * peg)}</div>
           </div>
         </div>
@@ -646,14 +690,14 @@ function App() {
 
       {state.users.map(u => (
         <div key={u.id} className="card">
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:8, marginBottom:14 }}>
-            <div>
+          <div className="wallet-hdr" style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:8, marginBottom:14 }}>
+            <div style={{ flex:1, minWidth:0, marginRight:8 }}>
               <div style={{ fontSize:17, fontWeight:500 }}>{u.name}</div>
-              <div style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)", wordBreak:"break-all" }}>{u.addr}</div>
+              <div style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)", wordBreak:"break-all", overflowWrap:"anywhere" }}>{u.addr}</div>
             </div>
-            <button className="btn btn-outline" onClick={()=>setShowQR(u)}>QR Code</button>
+            <button className="btn btn-outline" style={{ flexShrink:0 }} onClick={()=>setShowQR(u)}>QR Code</button>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
+          <div className="stat3" style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
             <div className="stat-box">
               <div className="label">Available</div>
               <div style={{ fontSize:17, fontWeight:500, fontFamily:"var(--mono)" }}>{fmt(u.balance)}</div>
@@ -669,7 +713,7 @@ function App() {
             </div>
           </div>
           {/* ── DigitalSilkWay Investment ── */}
-          <div style={{ marginTop:14, display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+          <div className="invest-row" style={{ marginTop:14, display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
             {investId===u.id ? (<>
               <input className="input" style={{ flex:1, minWidth:100, fontSize:13 }} type="number" placeholder="Amount…" value={investAmt} onChange={e=>setInvestAmt(e.target.value)} min="0" />
               <button className="btn btn-orange-fill" onClick={()=>doInvest(u.id)}>Confirm</button>
@@ -742,8 +786,8 @@ function App() {
     <div style={{ maxWidth:880, margin:"0 auto", padding:"0 16px 60px", minHeight:"100vh" }}>
 
       {/* ── TICKER BAR ── */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"22px 0 18px", borderBottom:"1px solid var(--border)", marginBottom:20, flexWrap:"wrap", gap:12 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+      <div className="ticker-bar" style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"22px 0 18px", borderBottom:"1px solid var(--border)", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <div className="ticker-left" style={{ display:"flex", alignItems:"center", gap:14 }}>
           <div style={{ width:42, height:42, borderRadius:11, background:"#222", display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:400, color:"#fff" }}>CC</div>
           <div>
             <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
@@ -752,12 +796,14 @@ function App() {
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:2 }}>
               <span style={{ fontSize:16, fontWeight:400, fontFamily:"var(--mono)" }}>€{peg.toFixed(4)}</span>
-              <span style={{ fontSize:11, fontWeight:500, color:"var(--green)" }}>≈ 1:1 {PEG_ASSET}</span>
+              <span style={{ fontSize:11, fontWeight:500, color:"var(--green)" }}>
+                {eurUsd ? `1 EUR = $${eurUsd.toFixed(4)} USD` : `≈ 1:1 ${PEG_ASSET}`}
+              </span>
             </div>
           </div>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-          <MiniChart />
+        <div className="ticker-right" style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <div className="mini-chart"><MiniChart /></div>
           <div style={{ fontSize:11, color:"var(--text3)", background:"var(--bg2)", padding:"6px 14px", borderRadius:8, display:"flex", alignItems:"center", gap:7, border:"1px solid var(--border)", fontFamily:"var(--mono)" }}>
             <div style={{ width:5, height:5, borderRadius:"50%", background:"var(--green)", boxShadow:"0 0 5px var(--green)", animation:"pulse 2s infinite" }} />
             #{state.blockHeight}
@@ -768,7 +814,7 @@ function App() {
       {/* ── NAV ── */}
       <div style={{ display:"flex", gap:4, background:"var(--bg2)", borderRadius:14, padding:4, border:"1px solid var(--border)", marginBottom:20 }}>
         {[["dashboard","Dashboard"],["wallets","Wallets"],["transfer","Transfer"],["mining","Mining"]].map(([k,l]) => (
-          <button key={k} style={{ flex:1, padding:"10px 0", borderRadius:10, border:"none", background:view===k?"#222":"transparent", color:view===k?"#fff":"var(--text3)", fontSize:12, fontWeight:500 }} onClick={()=>setView(k)}>{l}</button>
+          <button key={k} className="nav-btn" style={{ flex:1, padding:"10px 0", borderRadius:10, border:"none", background:view===k?"#222":"transparent", color:view===k?"#fff":"var(--text3)", fontSize:12, fontWeight:500 }} onClick={()=>setView(k)}>{l}</button>
         ))}
       </div>
 
