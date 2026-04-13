@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Carrier Coin [CARY]</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23222'/><text x='50' y='66' text-anchor='middle' font-size='44' font-weight='400' fill='%23fff' font-family='sans-serif'>CC</text></svg>">
+
+<!-- ═══════════════════════════════════════════════════════════
+     FONT: Jost — clean geometric sans-serif (Futura-like)
+     ═══════════════════════════════════════════════════════════ -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- ═══════════════════════════════════════════════════════════
+     EXTERNAL LIBS — loaded via CDN, no build step needed
+     ═══════════════════════════════════════════════════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FIREBASE — compat SDK (works with plain script tags)
+     ═══════════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     STYLES
+     ═══════════════════════════════════════════════════════════ -->
+<style>
+:root {
+  /* ── Colours — edit these to rebrand ── */
+  --bg: #ffffff;
+  --bg2: #f8f8f7;           /* subtle off-white for stat boxes */
+  --card: #ffffff;
+  --border: #ebebeb;
+  --text: #222222;
+  --text2: #666666;
+  --text3: #aaaaaa;
+  --accent: #3366ff;         /* primary blue */
+  --accent-light: rgba(51,102,255,0.07);
+  --green: #22b455;
+  --green-light: rgba(34,180,85,0.07);
+  --orange: #e8700a;
+  --orange-light: rgba(232,112,10,0.07);
+  --red: #dd3333;
+  --shadow: 0 1px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.08);
+  --radius: 14px;
+
+  /* ── Fonts ── */
+  --font: 'Jost', 'Futura', -apple-system, sans-serif;
+  --mono: 'IBM Plex Mono', 'SF Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-font-smoothing: antialiased; }
+body { background: var(--bg); font-family: var(--font); color: var(--text); font-weight: 400; }
+
+@keyframes fadeUp { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:translateY(0) } }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+@keyframes slideIn { from { opacity:0; transform:scale(0.96) } to { opacity:1; transform:scale(1) } }
+
+#root > div { animation: fadeUp 0.4s ease; }
+
+input:focus, select:focus { border-color: var(--accent) !important; outline: none; box-shadow: 0 0 0 3px var(--accent-light); }
+select option { background: #fff; color: var(--text); }
+button { cursor: pointer; transition: all 0.15s ease; font-family: var(--font); }
+button:hover { opacity: 0.85; }
+button:active { transform: scale(0.98); }
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── Card ── */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; margin-bottom: 12px; box-shadow: var(--shadow); }
+
+/* ── Labels ── */
+.label { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 5px; }
+
+/* ── Rows ── */
+.row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid #f5f5f5; gap: 8px; flex-wrap: wrap; }
+.row:last-child { border-bottom: none; }
+
+/* ── Stat box ── */
+.stat-box { background: var(--bg2); border-radius: 12px; padding: 14px 16px; }
+
+/* ── Form ── */
+.field-label { font-size: 11px; color: var(--text3); display: block; margin-bottom: 5px; letter-spacing: 0.8px; text-transform: uppercase; font-weight: 500; }
+.input, .select { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--bg2); color: var(--text); font-size: 15px; font-family: var(--mono); outline: none; -webkit-appearance: none; transition: border-color 0.2s, box-shadow 0.2s; }
+
+/* ── Buttons ── */
+.btn { padding: 10px 22px; border-radius: 12px; border: none; font-size: 13px; font-weight: 500; }
+.btn-primary { background: var(--text); color: #fff; }
+.btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text2); padding: 9px 16px; border-radius: 10px; font-size: 12px; font-weight: 500; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-red { background: var(--red); color: #fff; }
+.btn-orange { background: transparent; border: 1.5px solid var(--orange); color: var(--orange); padding: 9px 16px; border-radius: 10px; font-size: 12px; font-weight: 500; }
+.btn-orange-fill { background: var(--orange); color: #fff; }
+
+/* ── Tags ── */
+.tag { font-size: 9px; font-weight: 500; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+.tag-mint { background: var(--green-light); color: var(--green); }
+.tag-distribute { background: #f0f0f0; color: var(--text3); }
+.tag-transfer { background: var(--accent-light); color: var(--accent); }
+.tag-invest { background: var(--orange-light); color: var(--orange); }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .card { padding: 16px; }
+  .g4 { grid-template-columns: repeat(2, 1fr) !important; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FIREBASE CONFIG
+     
+     Replace these values with your own from Firebase Console:
+     Project Settings → General → Your apps → Config
+     
+     Also create a Realtime Database:
+     Build → Realtime Database → Create → Test Mode
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAN2Ue8mOQxhXog0FW2Mj7u5qMlgjyJW_U",
+  authDomain: "carrier-coin-v2.firebaseapp.com",
+  databaseURL: "https://carrier-coin-v2-default-rtdb.firebaseio.com",
+  projectId: "carrier-coin-v2",
+  storageBucket: "carrier-coin-v2.firebasestorage.app",
+  messagingSenderId: "794522041987",
+  appId: "1:794522041987:web:e7ef3c645e81de020165b6"
+};
+
+/* ── Initialize Firebase ── */
+let db = null;
+let firebaseOK = false;
+try {
+  if (FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY") {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+    firebaseOK = true;
+    console.log("✓ Firebase connected");
+  } else {
+    console.warn("⚠ Firebase not configured — running in local-only mode");
+  }
+} catch(e) { console.error("Firebase error:", e); }
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     APPLICATION CODE
+     ═══════════════════════════════════════════════════════════ -->
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+/* ═════════════════════════════════════════════════════════════
+   CONFIG — edit these to customise the coin
+   ═════════════════════════════════════════════════════════════ */
+
+const COIN_NAME    = "Carrier Coin";   // Display name
+const COIN_SYMBOL  = "CARY";           // Ticker
+const PEG_ASSET    = "EUR";            // Pegged currency
+const PEG_RATE     = 1.0;              // 1 CARY = 1 EUR
+const TOTAL_SUPPLY = 1000000;          // Total coins
+const MINING_APY   = 0.082;            // 8.2% annual yield
+const BLOCK_MS     = 2000;             // Block every 2 seconds
+const REWARD_MS    = 1800000;          // Rewards every 30 minutes
+
+/* ═════════════════════════════════════════════════════════════
+   USERS — edit names and starting balances here
+   ═════════════════════════════════════════════════════════════ */
+
+const USERS = [
+  { id: "u1", name: "Stuart E.",  balance: 367000 },
+  { id: "u2", name: "Thomas M.",  balance: 189763 },
+  { id: "u3", name: "Martin L.",  balance: 234000 },
+  { id: "u4", name: "Damian C.",  balance: 94278 },
+];
+
+/* ═════════════════════════════════════════════════════════════
+   HELPERS
+   ═════════════════════════════════════════════════════════════ */
+
+const uid  = () => Math.random().toString(36).slice(2, 10);
+const now  = () => new Date().toISOString();
+const time = (iso) => { try { return new Date(iso).toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" }); } catch(e) { return ""; } };
+const date = (iso) => { try { return new Date(iso).toLocaleDateString("en-GB", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" }); } catch(e) { return ""; } };
+const fmt  = (n) => typeof n === "number" && !isNaN(n) ? n.toLocaleString("en-US", { minimumFractionDigits:2, maximumFractionDigits:2 }) : "0.00";
+const fmtK = (n) => n >= 1e6 ? (n/1e6).toFixed(2)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"K" : fmt(n);
+const addr = (name) => "0x" + name.replace(/[^A-Za-z]/g,"").slice(0,4).toUpperCase() + uid().toUpperCase() + uid().toUpperCase();
+const shortA = (a) => a ? a.slice(0,8) + "…" + a.slice(-4) : "";
+
+/* ═════════════════════════════════════════════════════════════
+   QR CODE — uses qrcodejs from CDN
+   ═════════════════════════════════════════════════════════════ */
+
+function QRWidget({ data, size = 220 }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    ref.current.innerHTML = "";
+    try {
+      new QRCode(ref.current, { text: data, width: size, height: size, colorDark:"#222", colorLight:"#fff", correctLevel: QRCode.CorrectLevel.M });
+    } catch(e) { ref.current.innerText = data; }
+    return () => { if(ref.current) ref.current.innerHTML = ""; };
+  }, [data, size]);
+  return (
+    <div style={{ display:"inline-block", background:"#fff", borderRadius:16, padding:20, boxShadow:"var(--shadow-lg)" }}>
+      <div ref={ref} style={{ width:size, height:size, lineHeight:0 }} />
+    </div>
+  );
+}
+
+/* ═════════════════════════════════════════════════════════════
+   GENESIS STATE
+   ═════════════════════════════════════════════════════════════ */
+
+function genesis() {
+  const masterAddr = "0xCARY" + uid().toUpperCase() + uid().toUpperCase();
+  const users = USERS.map(u => ({
+    ...u, addr: addr(u.name), stakingAmount: 0, stakingStart: null, investedAmount: 0,
+  }));
+  const dist = users.reduce((s,u) => s + u.balance, 0);
+  return {
+    masterAddr, masterBalance: TOTAL_SUPPLY - dist, users,
+    txLog: [
+      { id:uid(), from:"GENESIS", to:masterAddr, amount:TOTAL_SUPPLY, time:now(), type:"mint", block:0 },
+      ...users.map((u,i) => ({ id:uid(), from:masterAddr, to:u.addr, fromName:"Reserve", toName:u.name, amount:u.balance, time:now(), type:"distribute", block:i+1 })),
+    ],
+    blockHeight: users.length + 1,
+    pegHistory: [{ t: Date.now(), p: PEG_RATE }],
+    currentPeg: PEG_RATE,
+    miningRewards: [],
+    volumeTotal: dist,
+    lastRewardTime: Date.now(),
+  };
+}
+
+/* ═════════════════════════════════════════════════════════════
+   FIREBASE SYNC
+   ═════════════════════════════════════════════════════════════ */
+
+const DB = "cary_state";
+async function fbLoad()   { if(!firebaseOK) return null; try { const s = await db.ref(DB).once("value"); return s.val(); } catch(e) { return null; } }
+function fbSave(state)    { if(!firebaseOK) return; try { db.ref(DB).set(state); } catch(e) {} }
+function fbListen(cb)     { if(!firebaseOK) return ()=>{}; const r = db.ref(DB); r.on("value", s => { const v = s.val(); if(v) cb(v); }); return ()=>r.off("value"); }
+
+/* ═════════════════════════════════════════════════════════════
+   MAIN APP
+   ═════════════════════════════════════════════════════════════ */
+
+function App() {
+  const [state, setState]             = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [view, setView]               = useState("dashboard");
+  const [showQR, setShowQR]           = useState(null);
+  const [xFrom, setXFrom]             = useState("");    // no pre-selected sender
+  const [xTo, setXTo]                 = useState("");
+  const [xAmt, setXAmt]              = useState("");
+  const [xStatus, setXStatus]         = useState(null);
+  const [qrScan, setQrScan]           = useState(null);
+  const [investId, setInvestId]        = useState(null);
+  const [investAmt, setInvestAmt]      = useState("");
+  const saving = useRef(false);
+
+  /* ── Load from Firebase or create genesis ── */
+  useEffect(() => {
+    (async () => {
+      const saved = await fbLoad();
+      setState(saved && saved.users ? saved : genesis());
+      setLoading(false);
+    })();
+  }, []);
+
+  /* ── Listen for remote changes ── */
+  useEffect(() => fbListen(v => { if(!saving.current) setState(v); }), []);
+
+  /* ── Save on change (debounced) ── */
+  useEffect(() => {
+    if (!state || loading) return;
+    saving.current = true;
+    const t = setTimeout(() => { fbSave(state); saving.current = false; }, 250);
+    return () => clearTimeout(t);
+  }, [state, loading]);
+
+  /* ── Blocks: every 2s ── */
+  useEffect(() => {
+    if (!state) return;
+    const iv = setInterval(() => {
+      setState(p => {
+        if (!p) return p;
+        // Peg stays flat with very minor noise (±0.15%)
+        const last = p.currentPeg || PEG_RATE;
+        const noise = (Math.random() - 0.5) * 0.003;
+        const peg = Math.max(PEG_RATE * 0.985, Math.min(PEG_RATE * 1.015, last + noise));
+        return {
+          ...p,
+          blockHeight: p.blockHeight + 1,
+          currentPeg: peg,
+          pegHistory: [...(p.pegHistory||[]).slice(-80), { t: Date.now(), p: peg }],
+        };
+      });
+    }, BLOCK_MS);
+    return () => clearInterval(iv);
+  }, [!!state]);
+
+  /* ── Mining rewards: every 30 min ── */
+  useEffect(() => {
+    if (!state) return;
+    const iv = setInterval(() => {
+      setState(p => {
+        if (!p) return p;
+        const n = Date.now();
+        if (n - (p.lastRewardTime||n) < REWARD_MS) return p;
+        const frac = REWARD_MS / (365.25 * 24 * 3600 * 1000);
+        let uu = p.users; const rw = [];
+        uu = uu.map(u => {
+          if (u.stakingAmount > 0) {
+            const r = Math.round(u.stakingAmount * MINING_APY * frac * 100) / 100;
+            if (r > 0) { rw.push({ id:uid(), user:u.name, reward:r, block:p.blockHeight, time:now() }); return { ...u, balance:u.balance+r }; }
+          }
+          return u;
+        });
+        if (!rw.length) return { ...p, lastRewardTime: n };
+        return { ...p, users:uu, miningRewards:[...(p.miningRewards||[]),...rw].slice(-100), lastRewardTime:n, masterBalance:TOTAL_SUPPLY - uu.reduce((s,u) => s+u.balance+u.stakingAmount+(u.investedAmount||0), 0) };
+      });
+    }, 30000);
+    return () => clearInterval(iv);
+  }, [!!state]);
+
+  /* ── QR deep link ── */
+  useEffect(() => {
+    if (!state) return;
+    const check = () => {
+      const h = window.location.hash;
+      if (h.startsWith("#pay-")) {
+        const id = h.replace("#pay-","");
+        const u = state.users.find(u => u.id === id);
+        if (u) { setXTo(id); setView("transfer"); setQrScan(u.name); window.location.hash = ""; }
+      }
+    };
+    check();
+    window.addEventListener("hashchange", check);
+    return () => window.removeEventListener("hashchange", check);
+  }, [state?.users]);
+
+  /* ── Transfer ── */
+  const doTransfer = useCallback(() => {
+    const amt = parseFloat(xAmt);
+    if (!xFrom || !xTo || isNaN(amt) || amt <= 0) { setXStatus({ ok:false, msg:"Fill all fields" }); return; }
+    if (xFrom === xTo) { setXStatus({ ok:false, msg:"Same wallet" }); return; }
+    setState(p => {
+      if (!p) return p;
+      const f = p.users.find(u=>u.id===xFrom), t = p.users.find(u=>u.id===xTo);
+      if (!f||!t) return p;
+      if (f.balance < amt) { setXStatus({ ok:false, msg:`${f.name} has only ${fmt(f.balance)}` }); return p; }
+      setXStatus({ ok:true, msg:`${fmt(amt)} ${COIN_SYMBOL} → ${t.name}` }); setQrScan(null);
+      return { ...p,
+        users: p.users.map(u => u.id===xFrom ? {...u,balance:u.balance-amt} : u.id===xTo ? {...u,balance:u.balance+amt} : u),
+        txLog: [...(p.txLog||[]), { id:uid(), from:f.addr, to:t.addr, fromName:f.name, toName:t.name, amount:amt, time:now(), type:"transfer", block:p.blockHeight }].slice(-200),
+        volumeTotal: (p.volumeTotal||0) + amt,
+      };
+    });
+    setXAmt("");
+  }, [xFrom, xTo, xAmt]);
+
+  /* ── Stake ── */
+  const toggleStake = (id) => setState(p => ({ ...p, users: p.users.map(u => {
+    if (u.id !== id) return u;
+    if (u.stakingAmount > 0) return { ...u, balance:u.balance+u.stakingAmount, stakingAmount:0, stakingStart:null };
+    const a = Math.floor(u.balance * 0.5); if (a<=0) return u;
+    return { ...u, balance:u.balance-a, stakingAmount:a, stakingStart:now() };
+  }) }));
+
+  /* ── Invest in DigitalSilkWay ── */
+  const doInvest = useCallback((id) => {
+    const amt = parseFloat(investAmt);
+    if (isNaN(amt) || amt <= 0) return;
+    setState(p => {
+      if (!p) return p;
+      const u = p.users.find(u=>u.id===id);
+      if (!u || u.balance < amt) return p;
+      return { ...p,
+        users: p.users.map(x => x.id===id ? { ...x, balance:x.balance-amt, investedAmount:(x.investedAmount||0)+amt } : x),
+        txLog: [...(p.txLog||[]), { id:uid(), from:u.addr, to:"DSW", fromName:u.name, toName:"DigitalSilkWay", amount:amt, time:now(), type:"invest", block:p.blockHeight }].slice(-200),
+      };
+    });
+    setInvestAmt(""); setInvestId(null);
+  }, [investAmt]);
+
+  /* ── Loading ── */
+  if (loading || !state) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"100vh" }}>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:24, fontWeight:500, letterSpacing:"-0.5px" }}>{COIN_NAME}</div>
+        <div style={{ fontSize:13, color:"var(--text3)", marginTop:4 }}>Connecting…</div>
+      </div>
+    </div>
+  );
+
+  const peg = state.currentPeg || PEG_RATE;
+
+  /* ═════════════════════════════════════════════════════════════
+     CHARTS
+     ═════════════════════════════════════════════════════════════ */
+
+  // Mini sparkline for ticker bar (flat/stable peg)
+  const MiniChart = () => {
+    const d = (state.pegHistory||[]).slice(-50);
+    if (d.length < 2) return null;
+    const w=100, h=28;
+    const mn = Math.min(...d.map(x=>x.p))*0.9995, mx = Math.max(...d.map(x=>x.p))*1.0005;
+    const pts = d.map((x,i) => `${(i/(d.length-1))*w},${h-((x.p-mn)/(mx-mn))*h}`).join(" ");
+    return (
+      <svg viewBox={`0 0 ${w} ${h}`} style={{ width:100, height:28, display:"block" }}>
+        <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+      </svg>
+    );
+  };
+
+  // Larger chart for dashboard
+  const PegChart = ({ height=64 }) => {
+    const d = (state.pegHistory||[]).slice(-80);
+    if (d.length < 2) return null;
+    const w=380, h2=height;
+    const mn = Math.min(...d.map(x=>x.p))*0.999, mx = Math.max(...d.map(x=>x.p))*1.001;
+    const pts = d.map((x,i) => `${(i/(d.length-1))*w},${h2-((x.p-mn)/(mx-mn))*h2}`).join(" ");
+    return (
+      <svg viewBox={`0 0 ${w} ${h2}`} style={{ width:"100%", height:h2 }}>
+        <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--accent)" stopOpacity="0.08"/><stop offset="100%" stopColor="var(--accent)" stopOpacity="0"/></linearGradient></defs>
+        <polygon points={`0,${h2} ${pts} ${w},${h2}`} fill="url(#pg)"/>
+        <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    );
+  };
+
+  /* ═════════════════════════════════════════════════════════════
+     DASHBOARD VIEW
+     ═════════════════════════════════════════════════════════════ */
+
+  const Dashboard = () => (
+    <div>
+      <div className="card">
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:16 }}>
+          <div>
+            <div className="label">Peg Rate</div>
+            <div style={{ fontSize:32, fontWeight:300, letterSpacing:"-1.5px", lineHeight:1.1, fontFamily:"var(--mono)" }}>
+              €{peg.toFixed(4)}
+            </div>
+            <div style={{ fontSize:12, color:"var(--text3)", marginTop:4 }}>1 {COIN_SYMBOL} = {peg.toFixed(4)} {PEG_ASSET}</div>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <div className="label">Total Supply</div>
+            <div style={{ fontSize:22, fontWeight:400, fontFamily:"var(--mono)" }}>{fmtK(TOTAL_SUPPLY)}</div>
+          </div>
+        </div>
+        <div style={{ marginTop:16 }}><PegChart /></div>
+      </div>
+
+      <div className="g4" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:12 }}>
+        {[
+          { l:"Reserve", v:fmtK(state.masterBalance) },
+          { l:"Circulating", v:fmtK(TOTAL_SUPPLY - state.masterBalance), c:"var(--accent)" },
+          { l:"Volume", v:fmtK(state.volumeTotal||0), c:"var(--green)" },
+          { l:"Block", v:"#"+state.blockHeight },
+        ].map((s,i) => (
+          <div key={i} className="card" style={{ padding:"14px 12px" }}>
+            <div className="label">{s.l}</div>
+            <div style={{ fontSize:14, fontWeight:500, fontFamily:"var(--mono)", color:s.c||"var(--text)" }}>{s.v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <div className="label" style={{ marginBottom:12 }}>Wallets</div>
+        <div className="row" style={{ borderBottomColor:"var(--border)" }}>
+          <div>
+            <div style={{ fontSize:13, fontWeight:500, color:"var(--text3)" }}>◆ Master Reserve</div>
+            <div style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)" }}>{shortA(state.masterAddr)}</div>
+          </div>
+          <div style={{ fontSize:15, fontWeight:500, fontFamily:"var(--mono)", color:"var(--text3)" }}>{fmtK(state.masterBalance)}</div>
+        </div>
+        {state.users.map(u => (
+          <div key={u.id} className="row">
+            <div>
+              <div style={{ fontSize:14, fontWeight:500 }}>{u.name}</div>
+              <div style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)" }}>{shortA(u.addr)}</div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:14, fontWeight:500, fontFamily:"var(--mono)" }}>{fmt(u.balance)}</div>
+              <div style={{ fontSize:10, color:"var(--text3)" }}>
+                {u.stakingAmount>0 && <span style={{color:"var(--green)"}}>⛏{fmtK(u.stakingAmount)} </span>}
+                {(u.investedAmount||0)>0 && <span style={{color:"var(--orange)"}}>↗{fmtK(u.investedAmount)}</span>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <div className="label" style={{ marginBottom:12 }}>Transactions</div>
+        {(state.txLog||[]).slice(-12).reverse().map(tx => (
+          <div key={tx.id} className="row">
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                <span className={"tag tag-"+tx.type}>{tx.type}</span>
+                <span style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)" }}>#{tx.block}</span>
+              </div>
+              <div style={{ fontSize:11, color:"var(--text2)", marginTop:3 }}>{tx.fromName||shortA(tx.from)} → {tx.toName||shortA(tx.to)}</div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:13, fontWeight:500, fontFamily:"var(--mono)" }}>{fmt(tx.amount)}</div>
+              <div style={{ fontSize:9, color:"var(--text3)" }}>{date(tx.time)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  /* ═════════════════════════════════════════════════════════════
+     WALLETS VIEW
+     ═════════════════════════════════════════════════════════════ */
+
+  const Wallets = () => (
+    <div>
+      <div className="card" style={{ borderLeft:"3px solid var(--text3)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8 }}>
+          <div>
+            <div className="label">Master Reserve</div>
+            <div style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)", wordBreak:"break-all" }}>{state.masterAddr}</div>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:26, fontWeight:300, fontFamily:"var(--mono)" }}>{fmt(state.masterBalance)}</div>
+            <div style={{ fontSize:11, color:"var(--text3)" }}>{COIN_SYMBOL} ≈ €{fmt(state.masterBalance * peg)}</div>
+          </div>
+        </div>
+      </div>
+
+      {state.users.map(u => (
+        <div key={u.id} className="card">
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:8, marginBottom:14 }}>
+            <div>
+              <div style={{ fontSize:17, fontWeight:500 }}>{u.name}</div>
+              <div style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)", wordBreak:"break-all" }}>{u.addr}</div>
+            </div>
+            <button className="btn btn-outline" onClick={()=>setShowQR(u)}>QR Code</button>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
+            <div className="stat-box">
+              <div className="label">Available</div>
+              <div style={{ fontSize:17, fontWeight:500, fontFamily:"var(--mono)" }}>{fmt(u.balance)}</div>
+              <div style={{ fontSize:10, color:"var(--text3)" }}>≈ €{fmt(u.balance*peg)}</div>
+            </div>
+            <div className="stat-box">
+              <div className="label">Staked</div>
+              <div style={{ fontSize:17, fontWeight:500, fontFamily:"var(--mono)", color:u.stakingAmount>0?"var(--green)":"var(--text3)" }}>{fmt(u.stakingAmount||0)}</div>
+            </div>
+            <div className="stat-box">
+              <div className="label">Invested</div>
+              <div style={{ fontSize:17, fontWeight:500, fontFamily:"var(--mono)", color:(u.investedAmount||0)>0?"var(--orange)":"var(--text3)" }}>{fmt(u.investedAmount||0)}</div>
+            </div>
+          </div>
+          {/* ── DigitalSilkWay Investment ── */}
+          <div style={{ marginTop:14, display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+            {investId===u.id ? (<>
+              <input className="input" style={{ flex:1, minWidth:100, fontSize:13 }} type="number" placeholder="Amount…" value={investAmt} onChange={e=>setInvestAmt(e.target.value)} min="0" />
+              <button className="btn btn-orange-fill" onClick={()=>doInvest(u.id)}>Confirm</button>
+              <button className="btn btn-outline" onClick={()=>{setInvestId(null);setInvestAmt("");}}>Cancel</button>
+            </>) : (
+              <button className="btn-orange" onClick={()=>{setInvestId(u.id);setInvestAmt("");}}>↗ Reinvest in the DigitalSilkWay</button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  /* ═════════════════════════════════════════════════════════════
+     TRANSFER VIEW
+     ═════════════════════════════════════════════════════════════ */
+
+  const Transfer = () => (
+    <div>
+      {qrScan && <div className="card" style={{ borderLeft:"3px solid var(--green)", background:"var(--green-light)" }}><div style={{ fontSize:13, color:"var(--green)", fontWeight:500 }}>✓ QR scanned — paying {qrScan}</div></div>}
+      <div className="card">
+        <div className="label" style={{ marginBottom:14 }}>Send {COIN_SYMBOL}</div>
+        <div style={{ marginBottom:14 }}>
+          <label className="field-label">From</label>
+          <select className="select" value={xFrom} onChange={e=>setXFrom(e.target.value)}>
+            <option value="">Select sender…</option>
+            {state.users.map(u => <option key={u.id} value={u.id}>{u.name} — {fmt(u.balance)} {COIN_SYMBOL}</option>)}
+          </select>
+        </div>
+        <div style={{ marginBottom:14 }}>
+          <label className="field-label">To</label>
+          <select className="select" value={xTo} onChange={e=>setXTo(e.target.value)}>
+            <option value="">Select recipient…</option>
+            {state.users.filter(u=>u.id!==xFrom).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        </div>
+        <div style={{ marginBottom:16 }}>
+          <label className="field-label">Amount</label>
+          <input className="input" type="number" placeholder="0.00" value={xAmt} onChange={e=>setXAmt(e.target.value)} min="0" step="0.01" />
+          {xAmt && !isNaN(parseFloat(xAmt)) && <div style={{ fontSize:11, color:"var(--text3)", marginTop:4, fontFamily:"var(--mono)" }}>≈ €{fmt(parseFloat(xAmt)*peg)}</div>}
+        </div>
+        <button className="btn btn-primary" onClick={doTransfer}>Execute Transfer</button>
+        {xStatus && <div style={{ marginTop:12, padding:"12px 16px", borderRadius:12, fontSize:13, background:xStatus.ok?"var(--green-light)":"rgba(221,51,51,0.06)", color:xStatus.ok?"var(--green)":"var(--red)" }}>{xStatus.ok?"✓ ":"✗ "}{xStatus.msg}</div>}
+      </div>
+      <div className="card">
+        <div className="label" style={{ marginBottom:10 }}>QR Payments</div>
+        <p style={{ fontSize:12, color:"var(--text3)", marginBottom:14, lineHeight:1.6 }}>Show recipient's QR → scan with phone camera → tap banner → transfer opens.</p>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {state.users.map(u => <button key={u.id} className="btn btn-outline" onClick={()=>setShowQR(u)}>{u.name}</button>)}
+        </div>
+      </div>
+      <div className="card">
+        <div className="label" style={{ marginBottom:10 }}>History</div>
+        {(state.txLog||[]).filter(t=>t.type==="transfer").length===0
+          ? <p style={{ fontSize:12, color:"var(--text3)", textAlign:"center", padding:20 }}>No transfers yet</p>
+          : (state.txLog||[]).filter(t=>t.type==="transfer").reverse().slice(0,15).map(tx => (
+            <div key={tx.id} className="row">
+              <div><div style={{ fontSize:13, fontWeight:500 }}>{tx.fromName} → {tx.toName}</div><div style={{ fontSize:10, color:"var(--text3)" }}>#{tx.block} · {date(tx.time)}</div></div>
+              <div style={{ fontSize:14, fontWeight:500, fontFamily:"var(--mono)", color:"var(--accent)" }}>{fmt(tx.amount)}</div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  );
+
+  /* ═════════════════════════════════════════════════════════════
+     MINING VIEW
+     ═════════════════════════════════════════════════════════════ */
+
+  const Mining = () => (
+    <div>
+      <div className="card">
+        <div className="label" style={{ marginBottom:10 }}>Proof-of-Stake Mining</div>
+        <p style={{ fontSize:13, color:"var(--text2)", marginBottom:16, lineHeight:1.6 }}>
+          Stake {COIN_SYMBOL} at {(MINING_APY*100).toFixed(1)}% APY. Rewards paid every 30 minutes.
+        </p>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+          <div className="stat-box"><div className="label">APY</div><div style={{ fontSize:18, fontWeight:500, color:"var(--green)" }}>{(MINING_APY*100).toFixed(1)}%</div></div>
+          <div className="stat-box"><div className="label">Block</div><div style={{ fontSize:18, fontWeight:500 }}>{BLOCK_MS/1000}s</div></div>
+          <div className="stat-box"><div className="label">Peg</div><div style={{ fontSize:18, fontWeight:500, color:"var(--accent)" }}>€{peg.toFixed(4)}</div></div>
+        </div>
+      </div>
+      {state.users.map(u => {
+        const sk = u.stakingAmount>0, daily = sk ? (u.stakingAmount*MINING_APY)/365.25 : 0;
+        return (
+          <div key={u.id} className="card" style={{ borderLeft:sk?"3px solid var(--green)":"none" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8, marginBottom:sk?12:0 }}>
+              <div>
+                <div style={{ fontSize:15, fontWeight:500 }}>{u.name}</div>
+                <div style={{ fontSize:12, color:"var(--text3)" }}>Available: {fmt(u.balance)} · Staked: {fmt(u.stakingAmount||0)}</div>
+              </div>
+              <button className={sk?"btn btn-red":"btn btn-green"} onClick={()=>toggleStake(u.id)}>{sk?"Unstake":"Stake 50%"}</button>
+            </div>
+            {sk && <div className="stat-box"><div className="label">Projected</div><div style={{ display:"flex", gap:24, flexWrap:"wrap", marginTop:6 }}>
+              <div><div style={{fontSize:10,color:"var(--text3)"}}>Daily</div><div style={{fontSize:13,fontWeight:500,color:"var(--green)",fontFamily:"var(--mono)"}}>+{fmt(daily)}</div></div>
+              <div><div style={{fontSize:10,color:"var(--text3)"}}>Monthly</div><div style={{fontSize:13,fontWeight:500,color:"var(--green)",fontFamily:"var(--mono)"}}>+{fmt(daily*30)}</div></div>
+              <div><div style={{fontSize:10,color:"var(--text3)"}}>Yearly</div><div style={{fontSize:13,fontWeight:500,color:"var(--green)",fontFamily:"var(--mono)"}}>+{fmt(u.stakingAmount*MINING_APY)}</div></div>
+            </div></div>}
+          </div>
+        );
+      })}
+      <div className="card">
+        <div className="label" style={{ marginBottom:10 }}>Rewards Log</div>
+        {(state.miningRewards||[]).length===0
+          ? <p style={{ fontSize:12, color:"var(--text3)", textAlign:"center", padding:20 }}>Stake to start earning</p>
+          : (state.miningRewards||[]).slice(-15).reverse().map(r => (
+            <div key={r.id} className="row">
+              <div><span style={{ fontSize:12, fontWeight:500 }}>{r.user}</span><span style={{ fontSize:10, color:"var(--text3)" }}> · #{r.block} · {date(r.time)}</span></div>
+              <div style={{ fontSize:13, fontWeight:500, color:"var(--green)", fontFamily:"var(--mono)" }}>+{r.reward.toFixed(4)}</div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  );
+
+  /* ═════════════════════════════════════════════════════════════
+     QR MODAL
+     ═════════════════════════════════════════════════════════════ */
+
+  const QRModal = () => {
+    if (!showQR) return null;
+    const url = window.location.href.split("#")[0] + "#pay-" + showQR.id;
+    return (
+      <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20,animation:"slideIn 0.2s ease" }} onClick={()=>setShowQR(null)}>
+        <div style={{ background:"#fff",borderRadius:24,padding:32,maxWidth:400,width:"100%",textAlign:"center",boxShadow:"var(--shadow-lg)" }} onClick={e=>e.stopPropagation()}>
+          <div className="label" style={{ marginBottom:4 }}>Scan to pay</div>
+          <div style={{ fontSize:20, fontWeight:500, marginBottom:4 }}>{showQR.name}</div>
+          <div style={{ fontSize:10, color:"var(--text3)", fontFamily:"var(--mono)", marginBottom:20, wordBreak:"break-all" }}>{showQR.addr}</div>
+          <QRWidget data={url} size={220} />
+          <p style={{ fontSize:11, color:"var(--text3)", marginTop:18, lineHeight:1.8 }}>
+            Point camera at this code. Tap the banner to open the payment page. Select sender and amount on the next screen.
+          </p>
+          <div style={{ marginTop:16, display:"flex", gap:8, justifyContent:"center" }}>
+            <button className="btn btn-primary" onClick={()=>{ setXTo(showQR.id); setView("transfer"); setShowQR(null); }}>Pay Now</button>
+            <button className="btn btn-outline" onClick={()=>setShowQR(null)}>Close</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ═════════════════════════════════════════════════════════════
+     RENDER
+     ═════════════════════════════════════════════════════════════ */
+
+  return (
+    <div style={{ maxWidth:880, margin:"0 auto", padding:"0 16px 60px", minHeight:"100vh" }}>
+
+      {/* ── TICKER BAR ── */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"22px 0 18px", borderBottom:"1px solid var(--border)", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+          <div style={{ width:42, height:42, borderRadius:11, background:"#222", display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:400, color:"#fff" }}>CC</div>
+          <div>
+            <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
+              <span style={{ fontSize:19, fontWeight:500, letterSpacing:"-0.3px" }}>{COIN_NAME}</span>
+              <span style={{ fontSize:12, fontWeight:500, color:"var(--accent)", background:"var(--accent-light)", padding:"2px 10px", borderRadius:6, fontFamily:"var(--mono)" }}>{COIN_SYMBOL}</span>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:2 }}>
+              <span style={{ fontSize:16, fontWeight:400, fontFamily:"var(--mono)" }}>€{peg.toFixed(4)}</span>
+              <span style={{ fontSize:11, fontWeight:500, color:"var(--green)" }}>≈ 1:1 {PEG_ASSET}</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <MiniChart />
+          <div style={{ fontSize:11, color:"var(--text3)", background:"var(--bg2)", padding:"6px 14px", borderRadius:8, display:"flex", alignItems:"center", gap:7, border:"1px solid var(--border)", fontFamily:"var(--mono)" }}>
+            <div style={{ width:5, height:5, borderRadius:"50%", background:"var(--green)", boxShadow:"0 0 5px var(--green)", animation:"pulse 2s infinite" }} />
+            #{state.blockHeight}
+          </div>
+        </div>
+      </div>
+
+      {/* ── NAV ── */}
+      <div style={{ display:"flex", gap:4, background:"var(--bg2)", borderRadius:14, padding:4, border:"1px solid var(--border)", marginBottom:20 }}>
+        {[["dashboard","Dashboard"],["wallets","Wallets"],["transfer","Transfer"],["mining","Mining"]].map(([k,l]) => (
+          <button key={k} style={{ flex:1, padding:"10px 0", borderRadius:10, border:"none", background:view===k?"#222":"transparent", color:view===k?"#fff":"var(--text3)", fontSize:12, fontWeight:500 }} onClick={()=>setView(k)}>{l}</button>
+        ))}
+      </div>
+
+      {view==="dashboard" && <Dashboard />}
+      {view==="wallets" && <Wallets />}
+      {view==="transfer" && <Transfer />}
+      {view==="mining" && <Mining />}
+
+      <QRModal />
+
+      {/* ── FOOTER ── */}
+      <div style={{ textAlign:"center", marginTop:40, padding:"16px 0" }}>
+        <a href="https://nico.money" target="_blank" rel="noopener noreferrer" style={{ fontSize:13, color:"var(--accent)", textDecoration:"none", fontWeight:500 }}>nico.money ↗</a>
+        <div style={{ fontSize:10, color:"var(--text3)", marginTop:6 }}>
+          {COIN_NAME} [{COIN_SYMBOL}] · {firebaseOK ? "🟢 Synced" : "⚪ Local"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
